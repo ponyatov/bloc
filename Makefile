@@ -11,8 +11,8 @@ requirements.txt:
 
 .PHONY: merge release
 
-MERGE  = README.md Makefile .gitgnore
-MERGE += bloc.ipynb requirements.txt
+MERGE  = README.md Makefile .gitignore
+MERGE += bloc.ipynb metaL.py test_metaL.py requirements.txt
 
 merge:
 	git checkout master

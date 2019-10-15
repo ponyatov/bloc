@@ -12,3 +12,4 @@ share/
 pyvenv.cfg
 
 .ipynb_checkpoints/
+wiki/
