@@ -74,3 +74,59 @@ class Frame:
     # method returns simplified tree dump for py.tests
     def test(self):
         return self.dump(test=True)
+
+# primitive scalar data types
+# close to low-level (hardware or implementation language)
+class Primitive(Frame):
+    def eval(self,ctx): # to itself
+        ctx // self
+
+# names other objects
+class Symbol(Primitive): pass
+
+# text string (multiline)
+class String(Primitive): pass
+
+# floating point number
+class Number(Primitive): pass
+
+# integer numbers
+class Integer(Number): pass
+# hexadecimal machine number
+class Hex(Integer): pass
+# binary string/number
+class Bin(Integer): pass
+
+# data containers
+class Container(Frame): pass
+
+# ordered variable-size vector
+class Vector(Container): pass
+
+# LIFO: push/pop interface
+class Stack(Container): pass
+
+# FIFO: put/get interface
+class Queue(Container): pass
+
+# associative array
+class Dict(Container): pass
+
+# single-element
+class Set(Container): pass
+
+# classes subset required to implement EDS: Executable Data Structure (c)
+class Active(Frame): pass
+
+# VM command which wraps Python function(context)
+class Cmd(Active): pass
+
+# global FORTH-like virtual machine
+
+vm = VM('metaL')
+
+# system init
+
+if __name__ == '__main__':
+    with open(sys.argv[0][:-3]+'.ini') as ini: # process metaL.ini
+        vm // String(ini.read()) ; INTERP(vm)
