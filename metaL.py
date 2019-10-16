@@ -71,6 +71,20 @@ class Frame:
 
 # class Frame:
 
+    # stack manipulations
+
+    ## ( a b -- a )
+    def pop(self):
+        return self.nest.pop(-1)
+    ## ( a b -- a b )
+    def top(self):
+        return self.nest[-1]
+    ## ( a b -- )
+    def dropall(self):
+        self.nest = [] ; return self    
+
+# class Frame:
+
     # method returns simplified tree dump for py.tests
     def test(self):
         return self.dump(test=True)
@@ -119,14 +133,104 @@ class Set(Container): pass
 class Active(Frame): pass
 
 # VM command which wraps Python function(context)
-class Cmd(Active): pass
+class Cmd(Active):
+    # use function name as .val
+    def __init__(self,F):
+        Active.__init__(self,F.__name__)
+        self.fn = F
+    # apply stored function to context
+    def eval(self,ctx):
+        self.fn(ctx)        
+
+# context = virtual machine
+# represents FORTH-like execution context: vocabulary + stack + set of commands works over VM state
+class VM(Active):
+    ## operator methods specially dedicated for wrapping Python functions
+    def __setitem__(self,key,F):
+        if callable(F): self[key] = Cmd(F) ; return self
+        else: return Active.__setitem__(self,key,F)
+    def __lshift__(self,F):
+        if callable(F): return self << Cmd(F)
+        else: return Active.__lshift__(self,F)
+
+# sequence: every element in nest[] executes one by one on a single provided context
+class Seq(Active,Vector): pass
 
 # global FORTH-like virtual machine
 
 vm = VM('metaL')
 
+# debug
+
+def Q(ctx): print(ctx)
+vm['?'] = Q
+
+# stack operations
+
+def DOT(ctx): ctx.dropall()
+vm['.'] = DOT
+
+# no-syntax parser
+
+import ply.lex as lex
+
+tokens = ['symbol','number','hex','bin']
+
+t_ignore = ' \t\r\n'
+t_ignore_comment = r'[\#\\].*'
+
+def t_hex(t):
+    r'0x[0-9a-fA-F]+'
+    return Hex(t.value)
+
+def t_bin(t):
+    r'0b[01]+'
+    return Bin(t.value)
+
+def t_number(t):
+    r'[+\-]?[0-9]+(\.[0-9]*)?([eE][+\-][0-9]+)?'
+    return Number(t.value)
+
+def t_symbol(t):
+    r'[^ \t\r\n\#\\]+'
+    return Symbol(t.value)
+
+def t_error(t): raise SyntaxError(t)
+
+# interpreter
+
+## ( -- str:token )
+def WORD(ctx):
+    token = ctx.lexer.token()
+    if token: ctx // token
+    return token
+
+## ( str:token -- some:object | notfound:token )
+def FIND(ctx):
+    token = ctx.pop()
+    try: ctx // ctx[token.val] ; return True
+    except KeyError: ctx // token ; return False
+
+## ( any:object -- ... )
+def EVAL(ctx):
+    ctx.pop().eval(ctx)
+
+## ( str -- )
+def INTERP(ctx):
+    ctx.lexer = lex.lex() ; ctx.lexer.input(ctx.pop().val)
+    while True:
+        if not WORD(ctx): break
+        if isinstance(ctx.top(),Symbol):
+            if not FIND(ctx): raise SyntaxError(ctx.top())
+        EVAL(ctx)
+        print(vm)
+
+# run commands from Jupyter as strings
+def M(cmd=''):
+    vm // String(cmd) ; INTERP(vm)
+
 # system init
 
 if __name__ == '__main__':
     with open(sys.argv[0][:-3]+'.ini') as ini: # process metaL.ini
-        vm // String(ini.read()) ; INTERP(vm)
+        M(ini.read())
