@@ -18,5 +18,12 @@ merge:
 	git checkout master
 	git checkout ponyatov -- $(MERGE)
 
+NOW = $(shell date +%y%m%d)
+REL = $(shell git rev-parse --short=4 HEAD)
+release:
+	-git tag $(NOW)-$(REL)
+	git push -v ; git push -v --tags
+	git checkout ponyatov
+
 wiki:
 	rm output_*.svg ; unzip ~/Загрузки/bloc.zip ; rm  ~/Загрузки/bloc.zip ; mv bloc.md Home.md 
