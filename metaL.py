@@ -2,6 +2,7 @@
 import os,sys
 from graphviz import Digraph
 
+# Marvin Minsky's extended frame model
 class Frame:
     def __init__(self,V):
         # type/class tag
@@ -76,9 +77,15 @@ class Frame:
     ## ( a b -- a )
     def pop(self):
         return self.nest.pop(-1)
+    ## ( a b -- b )
+    def pip(self):
+        return self.nest.pop(-2)
     ## ( a b -- a b )
     def top(self):
         return self.nest[-1]
+    ## ( a b -- a b )
+    def tip(self):
+        return self.nest[-2]
     ## ( a b -- )
     def dropall(self):
         self.nest = [] ; return self    
@@ -86,53 +93,67 @@ class Frame:
 # class Frame:
 
     # method returns simplified tree dump for py.tests
-    def test(self):
-        return self.dump(test=True)
+    def test(self,voc=True):
+        return self.dump(voc=voc,test=True)
 
-# primitive scalar data types
+# `Primitive` scalar data types
 # close to low-level (hardware or implementation language)
-class Primitive(Frame):
+class Prim(Frame):
     def eval(self,ctx): # to itself
         ctx // self
 
-# names other objects
-class Symbol(Primitive): pass
+# `Symbol` names other objects
+class Sym(Prim): pass
 
-# text string (multiline)
-class String(Primitive): pass
+# text `String` (multiline)
+class Str(Prim): pass
 
-# floating point number
-class Number(Primitive): pass
+# floating point `Number`
+class Num(Prim):
+    def __init__(self,V):
+        Prim.__init__(self,float(V))
 
-# integer numbers
-class Integer(Number): pass
-# hexadecimal machine number
-class Hex(Integer): pass
-# binary string/number
-class Bin(Integer): pass
+# `Integer` numbers
+class Int(Num):
+    def __init__(self,V):
+        Prim.__init__(self,int(V))
 
-# data containers
-class Container(Frame): pass
+# `Hex`adecimal machine number
+class Hex(Int):
+    def __init__(self,V):
+        Prim.__init__(self,int(V[2:],0x10))
+    def _val(self):
+        return hex(self.val)
 
-# ordered variable-size vector
-class Vector(Container): pass
+# `Bin`ary string/number
+class Bin(Int):
+    def __init__(self,V):
+        Prim.__init__(self,int(V[2:],0x02))
+    def _val(self):
+        return bin(self.val)
+
+# data `Container`s
+class Cont(Frame): pass
+
+# ordered variable-size `Vector`
+class Vector(Cont): pass
 
 # LIFO: push/pop interface
-class Stack(Container): pass
+class Stack(Cont): pass
 
 # FIFO: put/get interface
-class Queue(Container): pass
+class Queue(Cont): pass
 
 # associative array
-class Dict(Container): pass
+class Dict(Cont): pass
 
 # single-element
-class Set(Container): pass
+class Set(Cont): pass
 
 # classes subset required to implement EDS: Executable Data Structure (c)
 class Active(Frame): pass
 
-# VM command which wraps Python function(context)
+# VM `Command` which wraps Python function(context)
 class Cmd(Active):
     # use function name as .val
     def __init__(self,F):
@@ -153,20 +174,30 @@ class VM(Active):
         if callable(F): return self << Cmd(F)
         else: return Active.__lshift__(self,F)
 
-# sequence: every element in nest[] executes one by one on a single provided context
+# `Sequence`: every element in nest[] executes one by one on a single provided context
 class Seq(Active,Vector): pass
 
 # global FORTH-like virtual machine
 
-vm = VM('metaL')
+vm = VM('metaL') ; vm['vm'] = vm
+
+# BYE ( -- ) stop system
+def BYE(ctx): sys.exit(0)
+vm << BYE
 
 # debug
 
-def Q(ctx): print(ctx)
+# ? ( -- ) print current VM stack and continue execution
+def Q(ctx): print(ctx.dump(voc=False))
 vm['?'] = Q
+
+# ?? ( -- ) print full VM state and stop the system
+def QQ(ctx): print(ctx) ; BYE(ctx)
+vm['??'] = QQ
 
 # stack operations
 
+# . ( a b c -- ) drop all data from the stack
 def DOT(ctx): ctx.dropall()
 vm['.'] = DOT
 
@@ -174,7 +205,7 @@ vm['.'] = DOT
 
 import ply.lex as lex
 
-tokens = ['symbol','number','hex','bin']
+tokens = ['sym','num','int','hex','bin']
 
 t_ignore = ' \t\r\n'
 t_ignore_comment = r'[\#\\].*'
@@ -187,13 +218,21 @@ def t_bin(t):
     r'0b[01]+'
     return Bin(t.value)
 
-def t_number(t):
-    r'[+\-]?[0-9]+(\.[0-9]*)?([eE][+\-][0-9]+)?'
-    return Number(t.value)
+def t_num(t):
+    r'[+\-]?[0-9]+\.[0-9]*([eE][+\-][0-9]+)?'
+    return Num(t.value)
 
-def t_symbol(t):
-    r'[^ \t\r\n\#\\]+'
-    return Symbol(t.value)
+def t_num_exp(t):
+    r'[+\-]?[0-9]+[eE][+\-][0-9]+'
+    return Num(t.value)
+
+def t_int(t):
+    r'[+\-]?[0-9]+'
+    return Int(t.value)
+
+def t_sym(t):
+    r'(`)|[^ \t\r\n\#\\]+'
+    return Sym(t.value)
 
 def t_error(t): raise SyntaxError(t)
 
@@ -204,6 +243,7 @@ def WORD(ctx):
     token = ctx.lexer.token()
     if token: ctx // token
     return token
+vm['`'] = WORD
 
 ## ( str:token -- some:object | notfound:token )
 def FIND(ctx):
@@ -220,14 +260,13 @@ def INTERP(ctx):
     ctx.lexer = lex.lex() ; ctx.lexer.input(ctx.pop().val)
     while True:
         if not WORD(ctx): break
-        if isinstance(ctx.top(),Symbol):
+        if isinstance(ctx.top(),Sym):
             if not FIND(ctx): raise SyntaxError(ctx.top())
         EVAL(ctx)
-        print(vm)
 
 # run commands from Jupyter as strings
 def M(cmd=''):
-    vm // String(cmd) ; INTERP(vm)
+    vm // Str(cmd) ; INTERP(vm)
 
 # system init
 

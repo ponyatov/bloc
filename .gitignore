@@ -13,3 +13,5 @@ pyvenv.cfg
 
 .ipynb_checkpoints/
 wiki/
+
+py.py
