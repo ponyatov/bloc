@@ -20,6 +20,7 @@ requirements.txt:
 
 MERGE  = README.md Makefile .gitignore
 MERGE += bloc.ipynb metaL.py metaL.ini test_metaL.py requirements.txt
+MERGE += metaL.ipynb metaL_wikibook.ipynb static templates
 
 merge:
 	git checkout master
@@ -28,7 +29,7 @@ merge:
 NOW = $(shell date +%y%m%d)
 REL = $(shell git rev-parse --short=4 HEAD)
 release:
-	-git tag $(NOW)-$(REL)
+	git tag $(NOW)-$(REL)
 	git push -v ; git push -v --tags
 	git checkout ponyatov
 
