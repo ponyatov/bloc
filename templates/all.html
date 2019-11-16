@@ -1,0 +1,21 @@
+
+<title>{{vm['MODULE'].head()}}</title>
+<link rel="stylesheet" type="text/css" href="/{{vm['web']['css'].val}}.css">
+<link rel="shortcut icon" href="/logo.png" type="image/png">
+
+{% block header %}
+<table>
+        <tr>
+            <td><img src='/logo.png'></td>
+            <td><h1>{{ vm['MODULE'].val + " : " + vm['TITLE'].val }}</h1></td>
+        </tr>
+    </table>
+{% endblock %}
+
+{% block dump %}
+<pre id=dump>{{frame.dump()}}</pre>
+{% endblock %}
+
+{% block plot %}
+<pre id=plot>{{frame.plot()}}</pre>
+{% endblock %}

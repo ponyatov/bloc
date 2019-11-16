@@ -1,0 +1,9 @@
+* {
+    background: {{vm['web']['back'].val}};
+    color:      {{vm['web']['fore'].val}};
+    font:       {{vm['web']['font'].val}};
+}
+
+#dump {
+    font-size:  {{vm['web']['font']['size'].val}};
+}
